@@ -1,0 +1,135 @@
+package io;
+
+import java.util.HashMap;
+
+public class HeapTest {
+
+    public static void main(String[] args) throws InterruptedException {
+//        nonOutOfMemoryError2();
+//        nonOutOfMemoryError2();
+        HashMap map = new HashMap<>(1000);
+        outOfMemoryError3(map);
+    }
+
+    private static void outOfMemoryError() {
+        HashMap map = new HashMap<>(1000);
+        int count = 0;
+        for (; ; ) {
+            map.put(count++, new HashMap<>());
+        }
+
+    }
+
+
+    private static void nonOutOfMemoryError1() {
+        for (; ; ) {   //for循环里面的变量是局部变量，我在for里面new 的对象，出了循环后就会被回收掉
+            HashMap map = new HashMap<>(1000);
+            int count = 0;
+            map.put(count++, new HashMap<>());
+        }
+    }
+
+    private static void outOfMemoryError2() {
+        HashMap map = new HashMap();
+        int count = 0;
+        for (; ; ) {
+            HashMap map0 = new HashMap<>(1000);
+            map.put("map0", map0);
+            map.put(count++, new HashMap<>());
+        }
+    }
+
+
+    private static void outOfMemoryError3(HashMap map) {
+        int count = 0;
+        for (; ; ) {
+            HashMap map0 = new HashMap<>(1000);
+            map.put("map0", map0);
+            map.put(count++, new HashMap<>());
+        }
+    }
+
+}
+
+
+首先，程序要不断的去创建对象：所以我凭直觉写出这个代码
+
+   private static void nonOutOfMemoryError1() {
+        for (; ; ) {   //for循环里面的变量是局部变量，我在for里面new 的对象，出了循环后就会被回收掉
+            HashMap map = new HashMap<>(1000);
+            int count = 0;
+            map.put(count++, new HashMap<>());
+        }
+    }
+
+
+    但是不行，回想了下gc的原理，
+
+
+
+把代码改为：
+
+```Java
+private static void outOfMemoryError() {
+        HashMap map = new HashMap<>(1000);
+        int count = 0;
+        for (; ; ) {
+            map.put(count++, new HashMap<>());
+        }
+
+    }
+```
+
+
+
+内存泄露了
+
+
+
+思考了两种常见的内存泄露的代码：
+
+```Java
+   private static void outOfMemoryError2() {
+        HashMap map = new HashMap();
+        int count = 0;
+        for (; ; ) {
+            HashMap map0 = new HashMap<>(1000);
+            map.put("map0", map0);
+            map.put(count++, new HashMap<>());
+        }
+    }
+
+
+    private static void outOfMemoryError3(HashMap map) {
+        int count = 0;
+        for (; ; ) {
+            HashMap map0 = new HashMap<>(1000);
+            map.put("map0", map0);
+            map.put(count++, new HashMap<>());
+        }
+    }
+```
+
+
+
+
+
+
+
+启发：
+
+1.就是我们在自己的方法内，或者循坏体里面可以创建任意对象ABC，只要ABC没有被外部所引用，都可以顺利Jvm被回收。
+
+2.方法外部传入的对象，我们在使用时，最好copy他的副本来使用，不要改变原来的引用
+
+
+
+举个例子，方法外部传了个A对象进来，我创造了一些新对象B，又把B引用到了A上，如果A没有被回收掉，那B也不能顺利被回收
+
+
+
+
+
+3.当然，这种写法很容易看出来，但是有两种形式是不容易被发现的：
+
+ThreadLocal
